@@ -14,9 +14,13 @@ func main() {
 	}
 
 	f, _ := os.Create("/var/log/golang/golang-server.log")
-	defer f.Close()
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			log.Println(err)
+		}
+	}(f)
 	log.SetOutput(f)
-
 
 	app := fiber.New()
 	app.Use(cors.New())
@@ -30,11 +34,10 @@ func main() {
 
 	app.Get("/api/version", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
-			"version": "1.0.0",
-			"status": "Ok",
+			"version": "1.0.1",
+			"status":  "Ok",
 		})
 	})
-
 
 	log.Printf("Listening on port %s\n\n", port)
 	log.Fatal(app.Listen(":" + port))
