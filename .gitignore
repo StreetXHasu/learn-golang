@@ -13,6 +13,10 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+.DS_Store
+TODO.md
+logs.txt
+secret.md
 
 # Golang ide
 *.iml
@@ -27,3 +31,5 @@
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
+
+app.env
