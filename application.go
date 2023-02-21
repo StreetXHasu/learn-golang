@@ -54,7 +54,7 @@ func main() {
 
 	app.Get("/api/version", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
-			"version": "1.0.1",
+			"version": "1.1.0",
 			"status":  "Ok",
 		})
 	})
