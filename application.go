@@ -18,6 +18,8 @@ func init() {
 		log.Fatalln("Failed to load environment variables! \n", err.Error())
 	}
 	log.Println("port ", config.DBPort)
+
+	//initializers.ConnectDB(&config)
 }
 
 func main() {
