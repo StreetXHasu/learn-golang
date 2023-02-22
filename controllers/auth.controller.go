@@ -10,8 +10,8 @@ import (
 )
 
 var users = map[string]string{
-	"user1": "password1",
-	"user2": "password2",
+	"user1@user1.com": "password1",
+	"user2@user2.com": "password2",
 }
 
 type SignInInput struct {
