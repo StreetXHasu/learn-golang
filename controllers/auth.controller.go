@@ -29,13 +29,13 @@ func SignInUser(c *fiber.Ctx) error {
 	fmt.Println("payload.Email", strings.ToLower(payload.Email))
 	userEmail, foundEmail := users[resultEmail]
 	if foundEmail != true {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": "Invalid email or Password"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "fail", "message": "Invalid email or Password"})
 	}
 
 	resultPass := strings.ToLower(payload.Password)
 	fmt.Println("payload.Password", strings.ToLower(payload.Password))
 	if userEmail != resultPass {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": "Invalid email or Password"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "fail", "message": "Invalid email or Password"})
 	}
 
 	config, _ := initializers.LoadConfig(".")
@@ -53,7 +53,7 @@ func SignInUser(c *fiber.Ctx) error {
 	tokenString, err := tokenByte.SignedString([]byte(config.JwtSecret))
 
 	if err != nil {
-		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"status": "fail", "message": fmt.Sprintf("generating JWT Token failed: %v", err)})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "fail", "message": fmt.Sprintf("generating JWT Token failed: %v", err)})
 	}
 
 	c.Cookie(&fiber.Cookie{

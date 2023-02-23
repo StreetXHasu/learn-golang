@@ -19,15 +19,12 @@ func init() {
 	}
 	log.Println("port ", config.DBPort)
 
-	//initializers.ConnectDB(&config)
+	initializers.ConnectDB(&config)
 }
 
 func main() {
 	config, _ := initializers.LoadConfig(".") // load environment variables
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = config.AppPort
-	}
+	port := config.AppPort
 
 	f, _ := os.Create("/var/log/golang/golang-server.log")
 	defer func(f *os.File) {
@@ -41,6 +38,7 @@ func main() {
 	app := fiber.New()
 	micro := fiber.New()
 	app.Use(logger.New())
+	log.Printf("Listening on port %s\n\n", port)
 	app.Use(cors.New())
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("Hello World!")
@@ -50,18 +48,20 @@ func main() {
 		router.Post("/login", controllers.SignInUser)
 		router.Get("/logout", controllers.LogoutUser)
 	})
-	app.Get("/api", func(c *fiber.Ctx) error {
-		return c.SendString("This is API!")
-	})
 
-	app.Get("/api/version", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"version": "1.1.0",
-			"status":  "Ok",
+	micro.Get("/", func(c *fiber.Ctx) error {
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"status":  "success",
+			"message": "This is API!",
+		})
+	})
+	micro.Get("/version", func(c *fiber.Ctx) error {
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"version": "1.1.1",
+			"status":  "success",
 		})
 	})
 
-	log.Printf("Listening on port %s\n\n", port)
 	micro.Get("/healthchecker", func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"status":  "success",
