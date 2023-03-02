@@ -2,40 +2,79 @@ package controllers
 
 import (
 	"app-learn-golang/initializers"
+	"app-learn-golang/models"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt"
+	"golang.org/x/crypto/bcrypt"
 	"strings"
 	"time"
 )
 
-var users = map[string]string{
-	"user1@user1.com": "password1",
-	"user2@user2.com": "password2",
-}
+func SignUpUser(c *fiber.Ctx) error {
+	var payload *models.SignUpInput
 
-type SignInInput struct {
-	Email    string `json:"email"  validate:"required"`
-	Password string `json:"password"  validate:"required"`
-}
-
-func SignInUser(c *fiber.Ctx) error {
-	var payload SignInInput
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": err.Error()})
 	}
 
-	resultEmail := strings.ToLower(payload.Email)
-	fmt.Println("payload.Email", strings.ToLower(payload.Email))
-	userEmail, foundEmail := users[resultEmail]
-	if foundEmail != true {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "fail", "message": "Invalid email or Password"})
+	errors := models.ValidateStruct(payload)
+	if errors != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "errors": errors})
+
 	}
 
-	resultPass := strings.ToLower(payload.Password)
-	fmt.Println("payload.Password", strings.ToLower(payload.Password))
-	if userEmail != resultPass {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "fail", "message": "Invalid email or Password"})
+	if payload.Password != payload.PasswordConfirm {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": "Passwords do not match"})
+
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
+
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": err.Error()})
+	}
+
+	newUser := models.User{
+		Name:     payload.Name,
+		Email:    strings.ToLower(payload.Email),
+		Password: string(hashedPassword),
+		Photo:    &payload.Photo,
+	}
+
+	result := initializers.DB.Create(&newUser)
+
+	if result.Error != nil && strings.Contains(result.Error.Error(), "duplicate key value violates unique") {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"status": "fail", "message": "User with that email already exists"})
+	} else if result.Error != nil {
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"status": "error", "message": "Something bad happened"})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"status": "success", "data": fiber.Map{"user": models.FilterUserRecord(&newUser)}})
+}
+
+func SignInUser(c *fiber.Ctx) error {
+	var payload *models.SignInInput
+
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": err.Error()})
+	}
+
+	errors := models.ValidateStruct(payload)
+	if errors != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(errors)
+
+	}
+
+	var user models.User
+	result := initializers.DB.First(&user, "email = ?", strings.ToLower(payload.Email))
+	if result.Error != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": "Invalid email or Password"})
+	}
+
+	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(payload.Password))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": "Invalid email or Password"})
 	}
 
 	config, _ := initializers.LoadConfig(".")
@@ -45,7 +84,7 @@ func SignInUser(c *fiber.Ctx) error {
 	now := time.Now().UTC()
 	claims := tokenByte.Claims.(jwt.MapClaims)
 
-	claims["sub"] = &users
+	claims["sub"] = user.ID
 	claims["exp"] = now.Add(config.JwtExpiresIn).Unix()
 	claims["iat"] = now.Unix()
 	claims["nbf"] = now.Unix()
@@ -53,7 +92,7 @@ func SignInUser(c *fiber.Ctx) error {
 	tokenString, err := tokenByte.SignedString([]byte(config.JwtSecret))
 
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "fail", "message": fmt.Sprintf("generating JWT Token failed: %v", err)})
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"status": "fail", "message": fmt.Sprintf("generating JWT Token failed: %v", err)})
 	}
 
 	c.Cookie(&fiber.Cookie{

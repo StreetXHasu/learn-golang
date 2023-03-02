@@ -2,10 +2,13 @@ package main
 
 import (
 	"app-learn-golang/controllers"
+	controllerAdmin "app-learn-golang/controllers/admin"
 	"app-learn-golang/initializers"
+	"app-learn-golang/middleware"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/expvar"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"log"
 	"os"
@@ -40,14 +43,22 @@ func main() {
 	app.Use(logger.New())
 	log.Printf("Listening on port %s\n\n", port)
 	app.Use(cors.New())
+	app.Use(expvar.New())
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("Hello World!")
 	})
 	app.Mount("/api", micro)
 	micro.Route("/auth", func(router fiber.Router) {
 		router.Post("/login", controllers.SignInUser)
+		router.Post("/register", controllers.SignUpUser)
 		router.Get("/logout", controllers.LogoutUser)
 	})
+
+	users := micro.Group("/users", middleware.DeserializeUser)
+	users.Get("/me", controllers.GetMe)
+
+	admin := micro.Group("/admin", middleware.DeserializeUser, middleware.Permissions)
+	admin.Get("/users", controllerAdmin.UserIndex)
 
 	micro.Get("/", func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -57,7 +68,7 @@ func main() {
 	})
 	micro.Get("/version", func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"version": "1.1.1",
+			"version": "1.1.3",
 			"status":  "success",
 		})
 	})
